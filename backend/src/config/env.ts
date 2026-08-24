@@ -8,6 +8,7 @@ export const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/social_analyzer?schema=public',
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+  CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
   MAX_FILE_SIZE_MB: process.env.MAX_FILE_SIZE_MB ? parseInt(process.env.MAX_FILE_SIZE_MB, 10) : 10,
   UPLOAD_DIR: process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads'),
 };

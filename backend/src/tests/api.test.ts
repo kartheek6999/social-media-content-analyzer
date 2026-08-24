@@ -1,15 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import path from 'path';
 import fs from 'fs';
 import { DocumentService } from '../modules/documents/document.service.js';
+import { createTestPdfFile } from './helpers.js';
 
 describe('DocumentService Integration', () => {
   const documentService = new DocumentService();
-  const samplePdfPath = path.join(process.cwd(), 'src/tests/assets/pdfjs_test.pdf');
+  let samplePdfPath: string;
+
+  beforeAll(async () => {
+    samplePdfPath = await createTestPdfFile('api_test_sample.pdf');
+  });
 
   it('should process a valid uploaded PDF document end-to-end', async () => {
-    expect(fs.existsSync(samplePdfPath)).toBe(true);
-
     const pdfBuf = fs.readFileSync(samplePdfPath);
 
     const mockFile: Express.Multer.File = {
@@ -19,7 +22,7 @@ describe('DocumentService Integration', () => {
       mimetype: 'application/pdf',
       size: pdfBuf.length,
       destination: path.dirname(samplePdfPath),
-      filename: 'pdfjs_test.pdf',
+      filename: 'api_test_sample.pdf',
       path: samplePdfPath,
       buffer: pdfBuf,
       stream: null as any,
@@ -30,7 +33,7 @@ describe('DocumentService Integration', () => {
     expect(doc.id).toBeDefined();
     expect(doc.originalFilename).toBe('test_social_post.pdf');
     expect(doc.status).toBe('COMPLETED');
-    expect(doc.extractedText).toContain('Social Media Strategy 2026');
+    expect(doc.extractedText).toContain('Social Media Strategy');
     expect(doc.analysis).toBeDefined();
     expect(doc.analysis?.engagementScore).toBeGreaterThan(0);
     expect(doc.analysis?.hookSuggestion).toBeDefined();

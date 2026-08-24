@@ -8,8 +8,17 @@ import { env } from './config/env.js';
 
 const app = express();
 
-// Middleware
-app.use(cors({ origin: '*' }));
+// Configure CORS
+const allowedOrigins = env.CORS_ORIGIN === '*' 
+  ? '*' 
+  : env.CORS_ORIGIN.split(',').map(o => o.trim());
+
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -22,6 +31,7 @@ app.get('/health', (_req, res) => {
     status: 'UP',
     timestamp: new Date().toISOString(),
     env: env.NODE_ENV,
+    storage: 'PostgreSQL + Local Disk',
   });
 });
 
