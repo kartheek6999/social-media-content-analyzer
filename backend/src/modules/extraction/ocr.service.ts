@@ -10,7 +10,7 @@ export interface OCRExtractionResult {
 
 export class OCRExtractionService {
   /**
-   * Performs OCR on an image file using Tesseract.js with a strict timeout boundary.
+   * Performs OCR on an image file using Tesseract.js with strict timeout and worker cleanup.
    */
   public static async extractText(
     filePath: string,
@@ -23,24 +23,17 @@ export class OCRExtractionService {
     let worker: any = null;
 
     try {
-      // Race worker execution against timeout boundary to prevent hanging indefinitely
       const ocrTask = (async () => {
         worker = await createWorker('eng');
         const ret = await worker.recognize(filePath);
-        await worker.terminate();
-        worker = null;
         return ret;
       })();
 
       const timeoutTask = new Promise<never>((_, reject) => {
         const timer = setTimeout(() => {
-          if (worker) {
-            worker.terminate().catch(() => {});
-          }
-          reject(new AppError('OCR process timed out. Please try uploading a smaller or clearer image.', 408));
+          reject(new AppError('OCR processing timed out. Please upload a smaller or higher contrast image.', 408));
         }, timeoutMs);
         
-        // Ensure timer doesn't keep node event loop open if ocrTask completes
         if (typeof timer.unref === 'function') {
           timer.unref();
         }
@@ -65,9 +58,6 @@ export class OCRExtractionService {
         isLowConfidenceOrEmpty,
       };
     } catch (error: any) {
-      if (worker) {
-        worker.terminate().catch(() => {});
-      }
       if (error instanceof AppError) {
         throw error;
       }
@@ -76,6 +66,10 @@ export class OCRExtractionService {
         `Failed to perform OCR on image: ${error?.message || 'Could not recognize text'}`,
         422
       );
+    } finally {
+      if (worker) {
+        worker.terminate().catch(() => {});
+      }
     }
   }
 }

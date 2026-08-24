@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { ProcessingStatus } from '@prisma/client';
 import { prisma, checkDbConnection } from '../../config/db.js';
 import { UnifiedExtractionService } from '../extraction/extraction.service.js';
@@ -130,7 +131,14 @@ export class DocumentService {
       }
     } catch (error: any) {
       console.error('[DOCUMENT PROCESSING FAILED]', error);
-      const errorMsg = error?.message || 'Processing failed during extraction or analysis';
+      const errorMsg = error?.message || 'Processing failed during text extraction or analysis';
+
+      // Clean up orphaned uploaded file if disk file exists
+      if (file.path && fs.existsSync(file.path)) {
+        try {
+          fs.unlinkSync(file.path);
+        } catch (_) {}
+      }
 
       if (mode === 'DB') {
         await prisma.document.update({
@@ -221,8 +229,20 @@ export class DocumentService {
     const mode = await this.getPersistenceMode();
 
     if (mode === 'DB') {
+      const doc = await prisma.document.findUnique({ where: { id } });
+      if (doc && doc.storagePath && fs.existsSync(doc.storagePath)) {
+        try {
+          fs.unlinkSync(doc.storagePath);
+        } catch (_) {}
+      }
       await prisma.document.delete({ where: { id } });
     } else {
+      const doc = memoryStore.get(id);
+      if (doc && doc.storagePath && fs.existsSync(doc.storagePath)) {
+        try {
+          fs.unlinkSync(doc.storagePath);
+        } catch (_) {}
+      }
       memoryStore.delete(id);
     }
   }

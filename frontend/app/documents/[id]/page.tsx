@@ -16,7 +16,8 @@ import {
   Hash, 
   BookOpen, 
   Loader2,
-  Trash2
+  Trash2,
+  FileQuestion
 } from 'lucide-react';
 import { fetchDocumentById, deleteDocument, DocumentData } from '@/lib/api';
 import { formatBytes, formatDate } from '@/lib/utils';
@@ -33,7 +34,11 @@ export default function DocumentDetailsPage() {
   const [deleting, setDeleting] = useState<boolean>(false);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || id === 'undefined') {
+      setError('Invalid document ID specified.');
+      setLoading(false);
+      return;
+    }
     loadDocument();
   }, [id]);
 
@@ -44,8 +49,8 @@ export default function DocumentDetailsPage() {
       const data = await fetchDocumentById(id);
       setDocument(data);
     } catch (err: any) {
-      console.error(err);
-      setError(err?.message || 'Failed to load document details');
+      console.error('[LOAD DOCUMENT ERROR]', err);
+      setError(err?.message || 'Document not found or removed.');
     } finally {
       setLoading(false);
     }
@@ -65,7 +70,7 @@ export default function DocumentDetailsPage() {
       await deleteDocument(id);
       router.push('/history');
     } catch (err: any) {
-      alert(err?.message || 'Failed to delete document');
+      alert(err?.message || 'Failed to delete document record.');
     } finally {
       setDeleting(false);
     }
@@ -73,24 +78,34 @@ export default function DocumentDetailsPage() {
 
   if (loading) {
     return (
-      <div className="py-24 text-center space-y-4">
+      <div className="py-24 text-center space-y-4 min-h-[400px] flex flex-col items-center justify-center">
         <Loader2 className="w-10 h-10 animate-spin text-indigo-600 mx-auto" />
-        <p className="text-slate-600 font-medium text-sm">Loading document analysis...</p>
+        <p className="text-slate-600 font-medium text-sm">Loading document analysis report...</p>
       </div>
     );
   }
 
   if (error || !document) {
     return (
-      <div className="max-w-xl mx-auto py-16 text-center space-y-4">
-        <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-200">
-          <p className="font-semibold">Unable to find document</p>
-          <p className="text-xs mt-1">{error}</p>
+      <div className="max-w-xl mx-auto py-16 text-center space-y-6">
+        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto">
+            <FileQuestion className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Document Not Found</h2>
+            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+              {error || 'The requested document record does not exist or has been deleted.'}
+            </p>
+          </div>
+          <Link
+            href="/history"
+            className="inline-flex items-center space-x-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs rounded-xl shadow-md transition-all"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Return to Document History</span>
+          </Link>
         </div>
-        <Link href="/history" className="inline-flex items-center text-sm font-medium text-indigo-600 hover:underline">
-          <ArrowLeft className="w-4 h-4 mr-1" />
-          Back to History
-        </Link>
       </div>
     );
   }
@@ -114,7 +129,7 @@ export default function DocumentDetailsPage() {
             <ArrowLeft className="w-3.5 h-3.5 mr-1" />
             Back to Document History
           </Link>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 truncate">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 truncate max-w-xl">
             {document.originalFilename}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
@@ -125,7 +140,7 @@ export default function DocumentDetailsPage() {
         <button
           onClick={handleDelete}
           disabled={deleting}
-          className="inline-flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors self-start sm:self-auto"
+          className="inline-flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors self-start sm:self-auto disabled:opacity-50"
         >
           <Trash2 className="w-4 h-4" />
           <span>{deleting ? 'Deleting...' : 'Delete Record'}</span>
@@ -143,17 +158,21 @@ export default function DocumentDetailsPage() {
                 <FileText className="w-5 h-5 text-indigo-600" />
                 <h2 className="font-bold text-slate-900 text-sm">Extracted Text</h2>
               </div>
-              <button
-                onClick={handleCopyText}
-                className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-medium text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-md transition-colors"
-              >
-                {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copied ? 'Copied!' : 'Copy Text'}</span>
-              </button>
+              {document.extractedText && (
+                <button
+                  onClick={handleCopyText}
+                  className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-medium text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-md transition-colors"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copied ? 'Copied!' : 'Copy Text'}</span>
+                </button>
+              )}
             </div>
 
-            <div className="p-6 overflow-y-auto max-h-[600px] text-sm text-slate-700 leading-relaxed font-mono whitespace-pre-wrap bg-slate-50/30">
-              {document.extractedText || (
+            <div className="p-6 overflow-y-auto max-h-[600px] text-xs sm:text-sm text-slate-700 leading-relaxed font-mono whitespace-pre-wrap bg-slate-50/30">
+              {document.extractedText ? (
+                document.extractedText
+              ) : (
                 <span className="text-slate-400 italic">No extractable text found in document.</span>
               )}
             </div>
@@ -181,7 +200,7 @@ export default function DocumentDetailsPage() {
               </div>
 
               {/* Score Badge */}
-              <div className={`px-4 py-3 rounded-2xl border ${scoreBadgeColor} text-center flex flex-col items-center justify-center shadow-sm`}>
+              <div className={`px-4 py-3 rounded-2xl border ${scoreBadgeColor} text-center flex flex-col items-center justify-center shadow-sm self-start sm:self-auto`}>
                 <span className="text-2xl font-extrabold leading-none">{score}/100</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider mt-1">Engagement Score</span>
               </div>
@@ -190,8 +209,8 @@ export default function DocumentDetailsPage() {
             {/* Summary */}
             <div>
               <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Content Summary</h4>
-              <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
-                {analysis?.summary}
+              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
+                {analysis?.summary || 'Summary unavailable.'}
               </p>
             </div>
 
@@ -203,7 +222,7 @@ export default function DocumentDetailsPage() {
                   <span>Suggested Hook Optimization</span>
                 </div>
                 <p className="text-xs text-slate-800 font-medium leading-relaxed">
-                  "{analysis?.hookSuggestion}"
+                  "{analysis?.hookSuggestion || 'No hook recommendation available.'}"
                 </p>
               </div>
 
@@ -213,7 +232,7 @@ export default function DocumentDetailsPage() {
                   <span>Suggested CTA Optimization</span>
                 </div>
                 <p className="text-xs text-slate-800 font-medium leading-relaxed">
-                  "{analysis?.ctaSuggestion}"
+                  "{analysis?.ctaSuggestion || 'No CTA recommendation available.'}"
                 </p>
               </div>
             </div>
@@ -228,7 +247,7 @@ export default function DocumentDetailsPage() {
                   <span>Strengths</span>
                 </div>
                 <ul className="space-y-2">
-                  {analysis?.strengths.map((str, idx) => (
+                  {(analysis?.strengths || []).map((str, idx) => (
                     <li key={idx} className="text-xs text-slate-700 bg-emerald-50/50 p-2.5 rounded-lg border border-emerald-100 flex items-start space-x-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1 flex-shrink-0" />
                       <span>{str}</span>
@@ -244,7 +263,7 @@ export default function DocumentDetailsPage() {
                   <span>Areas for Improvement</span>
                 </div>
                 <ul className="space-y-2">
-                  {analysis?.weaknesses.map((wk, idx) => (
+                  {(analysis?.weaknesses || []).map((wk, idx) => (
                     <li key={idx} className="text-xs text-slate-700 bg-amber-50/50 p-2.5 rounded-lg border border-amber-100 flex items-start space-x-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1 flex-shrink-0" />
                       <span>{wk}</span>
@@ -262,7 +281,7 @@ export default function DocumentDetailsPage() {
                 <span>Actionable Recommendations</span>
               </div>
               <div className="space-y-2">
-                {analysis?.suggestions.map((sug, idx) => (
+                {(analysis?.suggestions || []).map((sug, idx) => (
                   <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-xs text-slate-800 flex items-start space-x-3">
                     <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-[10px] flex-shrink-0">
                       {idx + 1}
@@ -283,7 +302,7 @@ export default function DocumentDetailsPage() {
                   <span>Suggested Hashtags</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {analysis?.hashtags.map((tag, idx) => (
+                  {(analysis?.hashtags || []).map((tag, idx) => (
                     <span key={idx} className="px-2.5 py-1 bg-slate-100 text-slate-700 font-medium rounded-md hover:bg-slate-200">
                       {tag}
                     </span>
@@ -295,10 +314,10 @@ export default function DocumentDetailsPage() {
               <div className="space-y-2">
                 <div className="flex items-center space-x-1 font-semibold text-slate-700">
                   <BookOpen className="w-4 h-4 text-violet-500" />
-                  <span>Readability Score: {analysis?.readability?.score}/100</span>
+                  <span>Readability Score: {analysis?.readability?.score ?? 0}/100</span>
                 </div>
                 <p className="text-slate-600 text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                  {analysis?.readability?.feedback}
+                  {analysis?.readability?.feedback || 'Readability feedback unavailable.'}
                 </p>
               </div>
 

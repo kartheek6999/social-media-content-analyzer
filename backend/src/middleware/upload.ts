@@ -15,12 +15,13 @@ const storage = multer.diskStorage({
     cb(null, env.UPLOAD_DIR);
   },
   filename: (_req, file, cb) => {
-    // Sanitize filename and append unique timestamp
-    const cleanOriginalName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    // Prevent path traversal by extracting basename only and removing invalid characters
+    const sanitizedBase = path.basename(file.originalname).replace(/[^a-zA-Z0-9.-]/g, '_');
+    const ext = path.extname(sanitizedBase).toLowerCase();
+    const nameWithoutExt = path.basename(sanitizedBase, ext);
+
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const ext = path.extname(cleanOriginalName);
-    const baseName = path.basename(cleanOriginalName, ext);
-    cb(null, `${baseName}-${uniqueSuffix}${ext}`);
+    cb(null, `${nameWithoutExt}-${uniqueSuffix}${ext}`);
   },
 });
 
@@ -30,7 +31,7 @@ const fileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
   if (!ALLOWED_MIME_TYPES.includes(file.mimetype) || !ALLOWED_EXTENSIONS.includes(ext)) {
     return cb(
       new AppError(
-        `Invalid file type. Allowed formats: ${ALLOWED_EXTENSIONS.join(', ')}`,
+        `Invalid file type (${ext || file.mimetype}). Allowed formats: ${ALLOWED_EXTENSIONS.join(', ')}`,
         400
       )
     );

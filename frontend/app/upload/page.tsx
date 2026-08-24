@@ -17,24 +17,28 @@ export default function UploadPage() {
   const [stage, setStage] = useState<Stage>('IDLE');
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [processedDoc, setProcessedDoc] = useState<DocumentData | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const MAX_SIZE_MB = 10;
   const ALLOWED_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
   const ALLOWED_EXTS = ['.pdf', '.png', '.jpg', '.jpeg'];
 
   const validateFile = (file: File): string | null => {
+    if (!file || file.size === 0) {
+      return 'Selected file is empty. Please select a valid document or image.';
+    }
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
       return `File size exceeds maximum limit of ${MAX_SIZE_MB}MB.`;
     }
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!ALLOWED_TYPES.includes(file.type) && !ALLOWED_EXTS.includes(ext)) {
-      return `Unsupported file format. Please upload PDF, PNG, JPG, or JPEG.`;
+      return `Unsupported file format (${ext || file.type}). Please upload a PDF document or PNG/JPG image.`;
     }
     return null;
   };
 
   const handleFileSelect = (file: File) => {
+    if (isSubmitting) return;
     setErrorMessage(null);
     const error = validateFile(file);
     if (error) {
@@ -48,7 +52,7 @@ export default function UploadPage() {
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    setDragActive(true);
+    if (!isSubmitting) setDragActive(true);
   };
 
   const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
@@ -61,6 +65,7 @@ export default function UploadPage() {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
+    if (isSubmitting) return;
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFileSelect(e.dataTransfer.files[0]);
@@ -74,36 +79,37 @@ export default function UploadPage() {
   };
 
   const handleStartUpload = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile || isSubmitting) return;
 
     try {
+      setIsSubmitting(true);
       setStage('UPLOADING');
       setUploadProgress(0);
       setErrorMessage(null);
 
-      // Start upload
       const response = await uploadDocument(selectedFile, (progress) => {
         setUploadProgress(progress);
-        if (progress === 100) {
+        if (progress >= 100) {
           setStage('EXTRACTING');
           setTimeout(() => {
             setStage('ANALYZING');
-          }, 1500);
+          }, 1200);
         }
       });
 
       setStage('SUCCESS');
-      setProcessedDoc(response.data);
 
-      // Navigate to results after brief delay
       setTimeout(() => {
         router.push(`/documents/${response.data.id}`);
-      }, 1200);
+      }, 1000);
 
     } catch (err: any) {
-      console.error(err);
+      console.error('[UPLOAD ERROR]', err);
       setStage('ERROR');
-      setErrorMessage(err?.message || 'An unexpected error occurred during processing.');
+      setIsSubmitting(false);
+      setErrorMessage(
+        err?.message || 'Unable to process document. Please upload a clear PDF or screenshot image.'
+      );
     }
   };
 
@@ -137,8 +143,17 @@ export default function UploadPage() {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`relative border-2 border-dashed rounded-xl p-8 sm:p-12 text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center space-y-4 ${
+              onClick={() => !isSubmitting && fileInputRef.current?.click()}
+              role="button"
+              tabIndex={0}
+              aria-label="Upload document drag and drop area"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }
+              }}
+              className={`relative border-2 border-dashed rounded-xl p-8 sm:p-12 text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center space-y-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 ${
                 dragActive
                   ? 'border-indigo-600 bg-indigo-50/60 scale-[1.01]'
                   : 'border-slate-300 hover:border-indigo-400 bg-slate-50/50 hover:bg-indigo-50/20'
@@ -198,10 +213,11 @@ export default function UploadPage() {
 
                 <button
                   onClick={handleStartUpload}
-                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-lg shadow-md shadow-indigo-500/20 flex items-center space-x-2 transition-all"
+                  disabled={isSubmitting}
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium text-sm rounded-lg shadow-md shadow-indigo-500/20 flex items-center space-x-2 transition-all"
                 >
-                  <span>Start Processing</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>{isSubmitting ? 'Processing...' : 'Start Processing'}</span>
+                  {!isSubmitting && <ArrowRight className="w-4 h-4" />}
                 </button>
               </div>
             )}
@@ -211,7 +227,7 @@ export default function UploadPage() {
               <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start space-x-3 text-red-700 text-sm">
                 <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-semibold block">Upload Error</span>
+                  <span className="font-semibold block">Processing Error</span>
                   <span>{errorMessage}</span>
                 </div>
               </div>
