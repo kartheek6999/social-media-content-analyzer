@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Builds & Outputs
+dist/
+.next/
+out/
+build/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Uploaded Files & Local Artifacts
+backend/uploads/
+uploads/
+*.traineddata
+*.log
+npm-debug.log*
+
+# Database & SQLite
+*.db
+*.sqlite
+
+# OS & Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
